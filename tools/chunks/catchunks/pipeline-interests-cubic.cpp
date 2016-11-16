@@ -33,7 +33,8 @@ namespace cubic {
 PipelineInterestsCubic::PipelineInterestsCubic(Face& face,
                                                RttEstimator& rttEstimator,
                                                RateEstimator& rateEstimator,
-                                               const Options& options)
+                                               const Options& options,
+                                               std::ostream& osSummary)
   : PipelineInterests(face)
   , m_options(options)
   , m_rttEstimator(rttEstimator)
@@ -61,14 +62,16 @@ PipelineInterestsCubic::PipelineInterestsCubic(Face& face,
   , m_cubicMinRtt(std::numeric_limits<double>::quiet_NaN())
   , m_nPackets(0)
   , m_nBits(0)
+  , m_osSummary(osSummary)
 {
   if (m_options.isVerbose) {
-    std::cerr << m_options;
+    //std::cerr << m_options;
     std::cerr << "\tCubic epoch start = " << m_cubicEpochStart << "\n";
     if (m_cubicEpochStart == time::steady_clock::TimePoint(time::milliseconds::zero())) {
           std::cerr << "\tCubic epoch starts as zero...\n";
     }
   }
+  m_osSummary << m_options;
 }
 
 PipelineInterestsCubic::~PipelineInterestsCubic()
@@ -339,9 +342,9 @@ PipelineInterestsCubic::handleData(const Interest& interest, const Data& data)
   BOOST_ASSERT(m_nReceived > 0);
   if (m_hasFinalBlockId && m_nReceived - 1 >= m_lastSegmentNo) { // all segments have been received
     cancel();
-    if (m_options.isVerbose) {
-      printSummary();
-    }
+    //if (m_options.isVerbose) {
+    printSummary();
+      //}
   }
   else {
     schedulePackets();
@@ -572,14 +575,14 @@ PipelineInterestsCubic::printSummary() const
       break;
   }
 
-  std::cerr << "\nAll segments have been received.\n"
-            << "Total # of segments received: " << m_nReceived << "\n"
-            << "Time used: " << timePassed.count() << " ms" << "\n"
-            << "Total # of packet loss burst: " << m_nLossEvents << "\n"
-            << "Packet loss rate: "
-            << static_cast<double>(m_nLossEvents) / static_cast<double>(m_nReceived) << "\n"
-            << "Total # of retransmitted segments: " << m_nRetransmitted << "\n"
-            << "Goodput: " << throughput << " " << throughputUnit << "\n";
+  m_osSummary << "\nAll segments have been received.\n"
+              << "Total # of segments received: " << m_nReceived << "\n"
+              << "Time used: " << timePassed.count() << " ms" << "\n"
+              << "Total # of packet loss burst: " << m_nLossEvents << "\n"
+              << "Packet loss rate: "
+              << static_cast<double>(m_nLossEvents) / static_cast<double>(m_nReceived) << "\n"
+              << "Total # of retransmitted segments: " << m_nRetransmitted << "\n"
+              << "Goodput: " << throughput << " " << throughputUnit << "\n";
 }
 
 std::ostream&

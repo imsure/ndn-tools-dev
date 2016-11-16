@@ -102,7 +102,8 @@ public:
    */
   PipelineInterestsAimd(Face& face, RttEstimator& rttEstimator,
                         RateEstimator& rateEstimator,
-                        const Options& options = Options());
+                        const Options& options = Options(),
+                        std::ostream& osSummary = std::cerr);
 
   ~PipelineInterestsAimd() final;
 
@@ -227,6 +228,8 @@ PUBLIC_WITH_TESTS_ELSE_PRIVATE:
   //for Rate measurement
   uint64_t m_nPackets;
   uint64_t m_nBits;
+
+  std::ostream& m_osSummary;
 };
 
 std::ostream&
