@@ -32,6 +32,7 @@ StatisticsCollector::StatisticsCollector(PipelineInterestsAimd& pipeline, RttEst
                                          std::ostream& osCwnd, std::ostream& osRtt)
   : m_osCwnd(osCwnd)
   , m_osRtt(osRtt)
+  , m_osRate(std::cerr)
 {
   m_osCwnd << "time\tcwndsize\n";
   m_osRtt  << "segment\trtt\trttvar\tsrtt\trto\n";
@@ -49,10 +50,12 @@ StatisticsCollector::StatisticsCollector(PipelineInterestsAimd& pipeline, RttEst
     });
 }
 
-StatisticsCollector::StatisticsCollector(PipelineInterestsCubic& pipeline, RttEstimator& rttEstimator,
-                                         std::ostream& osCwnd, std::ostream& osRtt)
+StatisticsCollector::StatisticsCollector(PipelineInterestsCubic& pipeline,
+                                         RttEstimator& rttEstimator, RateEstimator& rateEstimator,
+                                         std::ostream& osCwnd, std::ostream& osRtt, std::ostream& osRate)
   : m_osCwnd(osCwnd)
   , m_osRtt(osRtt)
+  , m_osRate(osRate)
 {
   m_osCwnd << "time\tcwndsize\n";
   m_osRtt  << "segment\trtt\trttvar\tsrtt\trto\n";

@@ -28,6 +28,7 @@
 #include "pipeline-interests-aimd.hpp"
 #include "pipeline-interests-cubic.hpp"
 #include "aimd-rtt-estimator.hpp"
+#include "aimd-rate-estimator.hpp"
 
 namespace ndn {
 namespace chunks {
@@ -39,15 +40,18 @@ namespace aimd {
 class StatisticsCollector : noncopyable
 {
 public:
-  StatisticsCollector(PipelineInterestsAimd& pipeline, RttEstimator& rttEstimator,
+  StatisticsCollector(PipelineInterestsAimd& pipeline,
+                      RttEstimator& rttEstimator,
                       std::ostream& osCwnd, std::ostream& osRtt);
 
-  StatisticsCollector(PipelineInterestsCubic& pipeline, RttEstimator& rttEstimator,
-                      std::ostream& osCwnd, std::ostream& osRtt);
+  StatisticsCollector(PipelineInterestsCubic& pipeline,
+                      RttEstimator& rttEstimator, RateEstimator& rateEstimator,
+                      std::ostream& osCwnd, std::ostream& osRtt, std::ostream& osRate);
 
 private:
   std::ostream& m_osCwnd;
   std::ostream& m_osRtt;
+  std::ostream& m_osRate;
 };
 
 } // namespace aimd

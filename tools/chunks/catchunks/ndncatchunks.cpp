@@ -40,6 +40,7 @@
 
 #include <ndn-cxx/security/validator-null.hpp>
 #include <fstream>
+#include <boost/filesystem.hpp>
 
 namespace ndn {
 namespace chunks {
@@ -59,9 +60,9 @@ main(int argc, char** argv)
   // i.e. only reduce window size at most once per RTT
   bool disableCwa(false), resetCwndToInit(false);
   double aiStep(1.0), mdCoef(0.5), alpha(0.125), beta(0.25),
-         minRto(200.0), maxRto(4000.0);
+    minRto(200.0), maxRto(4000.0), rateInterval(0.1);
   int initCwnd(1), initSsthresh(std::numeric_limits<int>::max()), k(4);
-  std::string cwndPath, rttPath;
+  std::string statsPath, cwndPath, rttPath, ratePath;
 
   namespace po = boost::program_options;
   po::options_description basicDesc("Basic Options");
@@ -78,6 +79,7 @@ main(int argc, char** argv)
                     "maximum number of retries in case of Nack or timeout (-1 = no limit)")
     ("verbose,v",   po::bool_switch(&options.isVerbose), "turn on verbose output")
     ("version,V",   "print program version and exit")
+    ("stats,S", po::value<std::string>(&statsPath), "output statistic data to the given path")
     ;
 
   po::options_description iterDiscoveryDesc("Iterative version discovery options");
@@ -99,12 +101,14 @@ main(int argc, char** argv)
                         "log file for AIMD cwnd statistics")
     ("aimd-debug-rtt", po::value<std::string>(&rttPath),
                        "log file for AIMD rtt statistics")
+    ("aimd-debug-rate-interval", po::value<double>(&rateInterval)->default_value(rateInterval),
+     "AIMD rate Interval")
     ("aimd-disable-cwa", po::bool_switch(&disableCwa),
-                         "disable Conservative Window Adaptation, "
-                         "i.e. reduce window on each timeout (instead of at most once per RTT)")
+     "disable Conservative Window Adaptation, "
+     "i.e. reduce window on each timeout (instead of at most once per RTT)")
     ("aimd-reset-cwnd-to-init", po::bool_switch(&resetCwndToInit),
-                                "reset cwnd to initial cwnd when loss event occurs, default is "
-                                "resetting to ssthresh")
+     "reset cwnd to initial cwnd when loss event occurs, default is "
+     "resetting to ssthresh")
     ("aimd-initial-cwnd",       po::value<int>(&initCwnd)->default_value(initCwnd),
                                 "initial cwnd")
     ("aimd-initial-ssthresh",   po::value<int>(&initSsthresh),
@@ -222,8 +226,10 @@ main(int argc, char** argv)
     unique_ptr<PipelineInterests> pipeline;
     unique_ptr<aimd::StatisticsCollector> statsCollector;
     unique_ptr<aimd::RttEstimator> rttEstimator;
+    unique_ptr<aimd::RateEstimator> rateEstimator;
     std::ofstream statsFileCwnd;
     std::ofstream statsFileRtt;
+    std::ofstream statsFileRate;
 
     if (pipelineType == "fixed") {
       PipelineInterestsFixedWindow::Options optionsPipeline(options);
@@ -283,6 +289,7 @@ main(int argc, char** argv)
       optionsRttEst.maxRto = aimd::Milliseconds(maxRto);
 
       rttEstimator = make_unique<aimd::RttEstimator>(optionsRttEst);
+      rateEstimator = make_unique<aimd::RateEstimator>(rateInterval);
 
       PipelineInterestsCubic::Options optionsPipeline;
       optionsPipeline.isVerbose = options.isVerbose;
@@ -292,16 +299,23 @@ main(int argc, char** argv)
       optionsPipeline.initSsthresh = static_cast<double>(initSsthresh);
       optionsPipeline.aiStep = aiStep;
 
-      auto cubicPipeline = make_unique<PipelineInterestsCubic>(face, *rttEstimator, optionsPipeline);
+      auto cubicPipeline = make_unique<PipelineInterestsCubic>(face, *rttEstimator,
+                                                               *rateEstimator,
+                                                               optionsPipeline);
 
-      if (!cwndPath.empty() || !rttPath.empty()) {
-        if (!cwndPath.empty()) {
-          statsFileCwnd.open(cwndPath);
-          if (statsFileCwnd.fail()) {
-            std::cerr << "ERROR: failed to open " << cwndPath << std::endl;
-            return 4;
-          }
+      if (!statsPath.empty()) {
+        // construct stats file paths
+        cwndPath = statsPath + '/' + "cwnd_" + pipelineType + ".txt";
+        rttPath = statsPath + '/' + "rtt_" + pipelineType + ".txt";
+        ratePath = statsPath + '/' + "rate_" + pipelineType + ".txt";
+
+        // open stats files
+        statsFileCwnd.open(cwndPath);
+        if (statsFileCwnd.fail()) {
+          std::cerr << "ERROR: failed to open " << cwndPath << std::endl;
+          return 4;
         }
+
         if (!rttPath.empty()) {
           statsFileRtt.open(rttPath);
           if (statsFileRtt.fail()) {
@@ -309,9 +323,41 @@ main(int argc, char** argv)
             return 4;
           }
         }
-        statsCollector = make_unique<aimd::StatisticsCollector>(*cubicPipeline, *rttEstimator,
-                                                                statsFileCwnd, statsFileRtt);
+
+        if (!ratePath.empty()) {
+          statsFileRate.open(ratePath);
+          if (statsFileRate.fail()) {
+            std::cerr << "ERROR: failed to open " << ratePath << std::endl;
+            return 4;
+          }
+        }
+
+        statsCollector = make_unique<aimd::StatisticsCollector>(*cubicPipeline,
+                                                                *rttEstimator,
+                                                                *rateEstimator,
+                                                                statsFileCwnd,
+                                                                statsFileRtt,
+                                                                statsFileRate);
       }
+
+      // if (!cwndPath.empty() || !rttPath.empty()) {
+      //   if (!cwndPath.empty()) {
+      //     statsFileCwnd.open(cwndPath);
+      //     if (statsFileCwnd.fail()) {
+      //       std::cerr << "ERROR: failed to open " << cwndPath << std::endl;
+      //       return 4;
+      //     }
+      //   }
+      //   if (!rttPath.empty()) {
+      //     statsFileRtt.open(rttPath);
+      //     if (statsFileRtt.fail()) {
+      //       std::cerr << "ERROR: failed to open " << rttPath << std::endl;
+      //       return 4;
+      //     }
+      //   }
+      //   statsCollector = make_unique<aimd::StatisticsCollector>(*cubicPipeline, *rttEstimator,
+      //                                                           statsFileCwnd, statsFileRtt);
+      // }
 
       pipeline = std::move(cubicPipeline);
     }

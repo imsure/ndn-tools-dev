@@ -30,11 +30,14 @@ namespace ndn {
 namespace chunks {
 namespace cubic {
 
-PipelineInterestsCubic::PipelineInterestsCubic(Face& face, RttEstimator& rttEstimator,
-                                             const Options& options)
+PipelineInterestsCubic::PipelineInterestsCubic(Face& face,
+                                               RttEstimator& rttEstimator,
+                                               RateEstimator& rateEstimator,
+                                               const Options& options)
   : PipelineInterests(face)
   , m_options(options)
   , m_rttEstimator(rttEstimator)
+  , m_rateEstimator(rateEstimator)
   , m_scheduler(m_face.getIoService())
   , m_nextSegmentNo(0)
   , m_receivedSize(0)
@@ -56,6 +59,8 @@ PipelineInterestsCubic::PipelineInterestsCubic(Face& face, RttEstimator& rttEsti
   , m_cubicOriginPoint(0)
   , m_cubicTcpCwnd(0)
   , m_cubicMinRtt(std::numeric_limits<double>::quiet_NaN())
+  , m_nPackets(0)
+  , m_nBits(0)
 {
   if (m_options.isVerbose) {
     std::cerr << m_options;
@@ -83,6 +88,10 @@ PipelineInterestsCubic::doRun()
   // schedule the event to check retransmission timer
   m_scheduler.scheduleEvent(m_options.rtoCheckInterval, [this] { checkRto(); });
 
+  // schedule the event to check rate at rate interval timer
+  m_scheduler.scheduleEvent(time::milliseconds((int) (m_options.rateInterval * 1000)),
+                            [this] {checkRate();});
+
   sendInterest(getNextSegmentNo(), false);
 }
 
@@ -96,6 +105,23 @@ PipelineInterestsCubic::doCancel()
   m_segmentInfo.clear();
   m_scheduler.cancelAllEvents();
   m_face.getIoService().stop();
+}
+
+void PipelineInterestsCubic::checkRate()
+{
+  if (isStopping())
+    return;
+
+  time::steady_clock::duration cur = time::steady_clock::now() - m_startTime;
+  double now = (double) cur.count() / 1000000000;
+
+  m_rateEstimator.addMeasurement(now, m_nPackets, m_nBits);
+
+  m_nPackets = 0;
+  m_nBits = 0;
+  m_scheduler.scheduleEvent(time::milliseconds((int) (m_options.rateInterval * 1000)),
+                            [this] {checkRate();});
+
 }
 
 void
@@ -261,6 +287,10 @@ PipelineInterestsCubic::handleData(const Interest& interest, const Data& data)
     }
     return; // ignore already-received segment
   }
+
+  // measure rate
+  m_nPackets += 1;
+  m_nBits += data.getContent().size() * 8;
 
   Milliseconds rtt = time::steady_clock::now() - segInfo.timeSent;
 

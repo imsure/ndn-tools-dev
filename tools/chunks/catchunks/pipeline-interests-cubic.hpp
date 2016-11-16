@@ -27,6 +27,7 @@
 
 #include "options.hpp"
 #include "aimd-rtt-estimator.hpp"
+#include "aimd-rate-estimator.hpp"
 #include "pipeline-interests.hpp"
 
 #include <queue>
@@ -37,6 +38,7 @@ namespace cubic {
 
 using ndn::chunks::aimd::Milliseconds;
 using ndn::chunks::aimd::RttEstimator;
+using ndn::chunks::aimd::RateEstimator;
 
 struct PipelineInterestsCubicOptions : public Options
 {
@@ -54,6 +56,8 @@ struct PipelineInterestsCubicOptions : public Options
   double cubicBeta = 0.2; ///< multiplicative decrease factor after a packet loss event
   bool cubicFastConvergence = true;
   bool cubicTcpFriendliness = false;
+
+  double rateInterval = 0.1; // for measuring transfer rate
 };
 
 /**
@@ -106,7 +110,8 @@ public:
    * configuration the method run must be called to start the Pipeline.
    */
   PipelineInterestsCubic(Face& face, RttEstimator& rttEstimator,
-                        const Options& options = Options());
+                         RateEstimator& rateEstimator,
+                         const Options& options = Options());
 
   ~PipelineInterestsCubic() final;
 
@@ -140,6 +145,9 @@ private:
    */
   void
   checkRto();
+
+  void
+  checkRate();
 
   /**
    * @param segNo the segment # of the to-be-sent Interest
@@ -196,6 +204,7 @@ private:
 PUBLIC_WITH_TESTS_ELSE_PRIVATE:
   const Options m_options;
   RttEstimator& m_rttEstimator;
+  RateEstimator& m_rateEstimator;
   Scheduler m_scheduler;
   uint64_t m_nextSegmentNo;
   size_t m_receivedSize;
@@ -234,6 +243,10 @@ PUBLIC_WITH_TESTS_ELSE_PRIVATE:
   double m_cubicOriginPoint;
   double m_cubicTcpCwnd;
   Milliseconds m_cubicMinRtt;
+
+  //for Rate measurement
+  uint64_t m_nPackets;
+  uint64_t m_nBits;
 };
 
 std::ostream&
