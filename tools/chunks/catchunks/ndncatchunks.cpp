@@ -245,6 +245,7 @@ main(int argc, char** argv)
       optionsRttEst.minRto = aimd::Milliseconds(minRto);
       optionsRttEst.maxRto = aimd::Milliseconds(maxRto);
 
+      rateEstimator = make_unique<aimd::RateEstimator>(rateInterval);
       rttEstimator = make_unique<aimd::RttEstimator>(optionsRttEst);
 
       PipelineInterestsAimd::Options optionsPipeline;
@@ -256,16 +257,23 @@ main(int argc, char** argv)
       optionsPipeline.aiStep = aiStep;
       optionsPipeline.mdCoef = mdCoef;
 
-      auto aimdPipeline = make_unique<PipelineInterestsAimd>(face, *rttEstimator, optionsPipeline);
+      auto aimdPipeline = make_unique<PipelineInterestsAimd>(face, *rttEstimator,
+                                                             *rateEstimator,
+                                                             optionsPipeline);
 
-      if (!cwndPath.empty() || !rttPath.empty()) {
-        if (!cwndPath.empty()) {
-          statsFileCwnd.open(cwndPath);
-          if (statsFileCwnd.fail()) {
-            std::cerr << "ERROR: failed to open " << cwndPath << std::endl;
-            return 4;
-          }
+      if (!statsPath.empty()) {
+        // construct stats file paths
+        cwndPath = statsPath + '/' + "cwnd_" + pipelineType + ".txt";
+        rttPath = statsPath + '/' + "rtt_" + pipelineType + ".txt";
+        ratePath = statsPath + '/' + "rate_" + pipelineType + ".txt";
+
+        // open stats files
+        statsFileCwnd.open(cwndPath);
+        if (statsFileCwnd.fail()) {
+          std::cerr << "ERROR: failed to open " << cwndPath << std::endl;
+          return 4;
         }
+
         if (!rttPath.empty()) {
           statsFileRtt.open(rttPath);
           if (statsFileRtt.fail()) {
@@ -273,9 +281,41 @@ main(int argc, char** argv)
             return 4;
           }
         }
-        statsCollector = make_unique<aimd::StatisticsCollector>(*aimdPipeline, *rttEstimator,
-                                                                statsFileCwnd, statsFileRtt);
+
+        if (!ratePath.empty()) {
+          statsFileRate.open(ratePath);
+          if (statsFileRate.fail()) {
+            std::cerr << "ERROR: failed to open " << ratePath << std::endl;
+            return 4;
+          }
+        }
+
+        statsCollector = make_unique<aimd::StatisticsCollector>(*aimdPipeline,
+                                                                *rttEstimator,
+                                                                *rateEstimator,
+                                                                statsFileCwnd,
+                                                                statsFileRtt,
+                                                                statsFileRate);
       }
+
+      // if (!cwndPath.empty() || !rttPath.empty()) {
+      //   if (!cwndPath.empty()) {
+      //     statsFileCwnd.open(cwndPath);
+      //     if (statsFileCwnd.fail()) {
+      //       std::cerr << "ERROR: failed to open " << cwndPath << std::endl;
+      //       return 4;
+      //     }
+      //   }
+      //   if (!rttPath.empty()) {
+      //     statsFileRtt.open(rttPath);
+      //     if (statsFileRtt.fail()) {
+      //       std::cerr << "ERROR: failed to open " << rttPath << std::endl;
+      //       return 4;
+      //     }
+      //   }
+      //   statsCollector = make_unique<aimd::StatisticsCollector>(*aimdPipeline, *rttEstimator,
+      //                                                           statsFileCwnd, statsFileRtt);
+      // }
 
       pipeline = std::move(aimdPipeline);
     }

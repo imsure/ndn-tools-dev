@@ -32,10 +32,12 @@ namespace chunks {
 namespace aimd {
 
 PipelineInterestsAimd::PipelineInterestsAimd(Face& face, RttEstimator& rttEstimator,
+                                             RateEstimator& rateEstimator,
                                              const Options& options)
   : PipelineInterests(face)
   , m_options(options)
   , m_rttEstimator(rttEstimator)
+  , m_rateEstimator(rateEstimator)
   , m_scheduler(m_face.getIoService())
   , m_nextSegmentNo(0)
   , m_receivedSize(0)
@@ -50,6 +52,8 @@ PipelineInterestsAimd::PipelineInterestsAimd(Face& face, RttEstimator& rttEstima
   , m_ssthresh(m_options.initSsthresh)
   , m_hasFailure(false)
   , m_failedSegNo(0)
+  , m_nPackets(0)
+  , m_nBits(0)
 {
   if (m_options.isVerbose) {
     std::cerr << m_options;
@@ -73,6 +77,10 @@ PipelineInterestsAimd::doRun()
   // schedule the event to check retransmission timer
   m_scheduler.scheduleEvent(m_options.rtoCheckInterval, [this] { checkRto(); });
 
+  // schedule the event to check rate at rate interval timer
+  m_scheduler.scheduleEvent(time::milliseconds((int) (m_options.rateInterval * 1000)),
+                            [this] {checkRate();});
+
   sendInterest(getNextSegmentNo(), false);
 }
 
@@ -85,6 +93,22 @@ PipelineInterestsAimd::doCancel()
   }
   m_segmentInfo.clear();
   m_scheduler.cancelAllEvents();
+}
+
+void PipelineInterestsAimd::checkRate()
+{
+  if (isStopping())
+    return;
+
+  time::steady_clock::duration cur = time::steady_clock::now() - m_startTime;
+  double now = (double) cur.count() / 1000000000;
+
+  m_rateEstimator.addMeasurement(now, m_nPackets, m_nBits);
+
+  m_nPackets = 0;
+  m_nBits = 0;
+  m_scheduler.scheduleEvent(time::milliseconds((int) (m_options.rateInterval * 1000)),
+                            [this] {checkRate();});
 }
 
 void
@@ -239,6 +263,10 @@ PipelineInterestsAimd::handleData(const Interest& interest, const Data& data)
     return; // ignore already-received segment
   }
 
+  // measure rate
+  m_nPackets += 1;
+  m_nBits += data.getContent().size() * 8;
+
   Milliseconds rtt = time::steady_clock::now() - segInfo.timeSent;
 
   if (m_options.isVerbose) {
@@ -262,7 +290,11 @@ PipelineInterestsAimd::handleData(const Interest& interest, const Data& data)
   if (segInfo.state == SegmentState::FirstTimeSent ||
       segInfo.state == SegmentState::InRetxQueue) { // do not sample RTT for retransmitted segments
     size_t nExpectedSamples = std::max(static_cast<int>(std::ceil(m_nInFlight / 2.0)), 1);
-    m_rttEstimator.addMeasurement(recvSegNo, rtt, nExpectedSamples);
+
+    time::steady_clock::duration cur = time::steady_clock::now() - m_startTime;
+    double now = (double) cur.count() / 1000000000;
+    m_rttEstimator.addMeasurement(recvSegNo, now, rtt, nExpectedSamples);
+
     m_segmentInfo.erase(recvSegNo); // remove the entry associated with the received segment
   }
   else { // retransmission

@@ -41,8 +41,8 @@ class StatisticsCollector : noncopyable
 {
 public:
   StatisticsCollector(PipelineInterestsAimd& pipeline,
-                      RttEstimator& rttEstimator,
-                      std::ostream& osCwnd, std::ostream& osRtt);
+                      RttEstimator& rttEstimator, RateEstimator& rateEstimator,
+                      std::ostream& osCwnd, std::ostream& osRtt, std::ostream& osRate);
 
   StatisticsCollector(PipelineInterestsCubic& pipeline,
                       RttEstimator& rttEstimator, RateEstimator& rateEstimator,
