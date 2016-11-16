@@ -35,6 +35,7 @@
 #include "pipeline-interests-fixed-window.hpp"
 #include "pipeline-interests-aimd.hpp"
 #include "pipeline-interests-cubic.hpp"
+#include "pipeline-interests-tcpbic.hpp"
 #include "aimd-rtt-estimator.hpp"
 #include "aimd-statistics-collector.hpp"
 
@@ -71,7 +72,7 @@ main(int argc, char** argv)
     ("discover-version,d",  po::value<std::string>(&discoverType)->default_value(discoverType),
                             "version discovery algorithm to use; valid values are: 'fixed', 'iterative'")
     ("pipeline-type,t",  po::value<std::string>(&pipelineType)->default_value(pipelineType),
-                         "type of Interest pipeline to use; valid values are: 'fixed', 'aimd', 'cubic'")
+                         "type of Interest pipeline to use; valid values are: 'fixed', 'aimd', 'tcpbic', 'cubic'")
     ("fresh,f",     po::bool_switch(&options.mustBeFresh), "only return fresh content")
     ("lifetime,l",  po::value<uint64_t>()->default_value(options.interestLifetime.count()),
                     "lifetime of expressed Interests, in milliseconds")
@@ -367,6 +368,71 @@ main(int argc, char** argv)
       }
 
       pipeline = std::move(cubicPipeline);
+    }
+    else if (pipelineType == "tcpbic") {
+      aimd::RttEstimator::Options optionsRttEst;
+      optionsRttEst.isVerbose = options.isVerbose;
+      optionsRttEst.alpha = alpha;
+      optionsRttEst.beta = beta;
+      optionsRttEst.k = k;
+      optionsRttEst.minRto = aimd::Milliseconds(minRto);
+      optionsRttEst.maxRto = aimd::Milliseconds(maxRto);
+
+      rttEstimator = make_unique<aimd::RttEstimator>(optionsRttEst);
+      rateEstimator = make_unique<aimd::RateEstimator>(rateInterval);
+
+      PipelineInterestsTcpBic::Options optionsPipeline;
+      optionsPipeline.isVerbose = options.isVerbose;
+      optionsPipeline.disableCwa = disableCwa;
+      optionsPipeline.resetCwndToInit = resetCwndToInit;
+      optionsPipeline.initCwnd = static_cast<double>(initCwnd);
+      optionsPipeline.initSsthresh = static_cast<double>(initSsthresh);
+      optionsPipeline.aiStep = aiStep;
+
+      if (!statsPath.empty()) {
+        summaryPath = statsPath + '/' + "summary_" + pipelineType + ".txt";
+        statsFileSummary.open(summaryPath);
+        if (statsFileSummary.fail()) {
+          std::cerr << "ERROR: failed to open " << summaryPath << std::endl;
+          return 4;
+        }
+      }
+
+      auto tcpbicPipeline = make_unique<PipelineInterestsTcpBic>(face, *rttEstimator,
+                                                                 *rateEstimator,
+                                                                 optionsPipeline,
+                                                                 statsPath.empty() ? std::cerr : statsFileSummary);
+
+      if (!statsPath.empty()) {
+        // construct stats file paths
+        cwndPath = statsPath + '/' + "cwnd_" + pipelineType + ".txt";
+        rttPath = statsPath + '/' + "rtt_" + pipelineType + ".txt";
+        ratePath = statsPath + '/' + "rate_" + pipelineType + ".txt";
+
+        // open stats files
+        statsFileCwnd.open(cwndPath);
+        if (statsFileCwnd.fail()) {
+          std::cerr << "ERROR: failed to open " << cwndPath << std::endl;
+          return 4;
+        }
+
+        statsFileRtt.open(rttPath);
+        if (statsFileRtt.fail()) {
+          std::cerr << "ERROR: failed to open " << rttPath << std::endl;
+          return 4;
+        }
+
+        statsFileRate.open(ratePath);
+        if (statsFileRate.fail()) {
+          std::cerr << "ERROR: failed to open " << ratePath << std::endl;
+          return 4;
+        }
+
+        statsCollector = make_unique<aimd::StatisticsCollector>(*tcpbicPipeline, *rttEstimator, *rateEstimator,
+                                                                statsFileCwnd, statsFileRtt, statsFileRate);
+      }
+
+      pipeline = std::move(tcpbicPipeline);
     }
     else {
       std::cerr << "ERROR: Interest pipeline type not valid" << std::endl;
