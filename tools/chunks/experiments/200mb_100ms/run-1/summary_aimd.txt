@@ -1,0 +1,17 @@
+PipelineInterestsAimd initial parameters:
+	Initial congestion window size = 1
+	Initial slow start threshold = 2.14748e+09
+	Multiplicative decrease factor = 0.5
+	Additive increase step = 1
+	RTO check interval = 10 milliseconds
+	Max retries on timeout or Nack = 5
+	Conservative Window Adaptation enabled
+	Resetting cwnd to ssthresh when loss event occurs
+
+All segments have been received.
+Total # of segments received: 47663
+Time used: 53716.3 ms
+Total # of packet loss burst: 11
+Packet loss rate: 0.000230787
+Total # of retransmitted segments: 229
+Goodput: 31.2323 Mbit/s

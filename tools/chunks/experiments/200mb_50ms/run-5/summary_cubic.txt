@@ -1,0 +1,19 @@
+PipelineInterestsCubic initial parameters:
+	Initial congestion window size = 1
+	Initial slow start threshold = 2.14748e+09
+	Additive increase step for slow start= 1
+	Cubic multiplicative decrease factor = 0.2
+	Cubic scaling factor = 0.4
+	RTO check interval = 10 milliseconds
+	Max retries on timeout or Nack = 5
+	only return fresh content? = 1
+	Conservative Window Adaptation enabled
+	Resetting cwnd to ssthresh when loss event occurs
+
+All segments have been received.
+Total # of segments received: 47663
+Time used: 45028.3 ms
+Total # of packet loss burst: 26
+Packet loss rate: 0.000545497
+Total # of retransmitted segments: 693
+Goodput: 37.2585 Mbit/s

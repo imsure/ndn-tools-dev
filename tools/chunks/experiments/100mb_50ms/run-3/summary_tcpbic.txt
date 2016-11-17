@@ -1,0 +1,17 @@
+PipelineInterestsTcpBic initial parameters:
+	Initial congestion window size = 1
+	Initial slow start threshold = 2.14748e+09
+	Multiplicative decrease factor = 0.5
+	Additive increase step = 1
+	RTO check interval = 10 milliseconds
+	Max retries on timeout or Nack = 5
+	Conservative Window Adaptation enabled
+	Resetting cwnd to ssthresh when loss event occurs
+
+All segments have been received.
+Total # of segments received: 23832
+Time used: 24214.9 ms
+Total # of packet loss burst: 17
+Packet loss rate: 0.000713327
+Total # of retransmitted segments: 202
+Goodput: 34.6409 Mbit/s
