@@ -299,8 +299,8 @@ PipelineInterestsCubic::handleData(const Interest& interest, const Data& data)
 
   if (m_options.isVerbose) {
     std::cerr << "Received segment #" << recvSegNo
-              << ", rtt=" << rtt.count()/1000.0 << "s"
-              << ", rto=" << segInfo.rto.count()/1000.0 << "s"
+              << ", rtt=" << rtt.count() << "ms"
+              << ", rto=" << segInfo.rto.count() << "ms"
               << ", segment state: " << segInfo.state
               << std::endl;
   }
