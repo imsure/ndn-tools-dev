@@ -616,7 +616,8 @@ operator<<(std::ostream& os, const PipelineInterestsCubicOptions& options)
      << "\tCubic multiplicative decrease factor = " << options.cubicBeta << "\n"
      << "\tCubic scaling factor = " << options.cubicScale << "\n"
      << "\tRTO check interval = " << options.rtoCheckInterval << "\n"
-     << "\tMax retries on timeout or Nack = " << options.maxRetriesOnTimeoutOrNack << "\n";
+     << "\tMax retries on timeout or Nack = " << options.maxRetriesOnTimeoutOrNack << "\n"
+     << "\tonly return fresh content? = " << options.mustBeFresh << "\n";
 
   std::string cwaStatus = options.disableCwa ? "disabled" : "enabled";
   os << "\tConservative Window Adaptation " << cwaStatus << "\n";

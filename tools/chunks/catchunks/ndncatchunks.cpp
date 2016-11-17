@@ -61,7 +61,7 @@ main(int argc, char** argv)
   // i.e. only reduce window size at most once per RTT
   bool disableCwa(false), resetCwndToInit(false);
   double aiStep(1.0), mdCoef(0.5), alpha(0.125), beta(0.25),
-    minRto(200.0), maxRto(4000.0), rateInterval(0.1);
+    minRto(200.0), maxRto(4000.0), rateInterval(0.5);
   int initCwnd(1), initSsthresh(std::numeric_limits<int>::max()), k(4);
   std::string statsPath, cwndPath, rttPath, ratePath, summaryPath;
 

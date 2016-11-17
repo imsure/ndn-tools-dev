@@ -34,7 +34,7 @@ namespace chunks {
 Options::Options()
   : interestLifetime(ndn::DEFAULT_INTEREST_LIFETIME)
   , maxRetriesOnTimeoutOrNack(5)
-  , mustBeFresh(false)
+  , mustBeFresh(true)
   , isVerbose(false)
 {
 }
