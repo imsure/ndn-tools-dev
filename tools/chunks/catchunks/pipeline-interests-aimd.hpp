@@ -26,13 +26,7 @@
 #ifndef NDN_TOOLS_CHUNKS_CATCHUNKS_PIPELINE_INTERESTS_AIMD_HPP
 #define NDN_TOOLS_CHUNKS_CATCHUNKS_PIPELINE_INTERESTS_AIMD_HPP
 
-#include "options.hpp"
-#include "aimd-rtt-estimator.hpp"
-#include "aimd-rate-estimator.hpp"
 #include "pipeline-interests-cwa.hpp"
-#include "segment-info.hpp"
-
-#include <queue>
 
 namespace ndn {
 namespace chunks {
@@ -55,15 +49,9 @@ public:
   double aiStep; ///< additive increase step (unit: segment)
 };
 
-// struct PipelineInterestsAimdOptions : public Options
-// {
-//   PipelineInterestsCwaOptions cwaOptions;
-//   double mdCoef = 0.5; ///< multiplicative decrease coefficient
-//   double aiStep = 1.0; ///< additive increase step (unit: segment)
-// };
-
 /**
- * @brief Service for retrieving Data via an Interest pipeline
+ * @brief Service for retrieving Data via an Interest pipeline with AIMD
+ * congestion window control algorithm.
  *
  * Retrieves all segmented Data under the specified prefix by maintaining a dynamic AIMD
  * congestion window combined with a Conservative Loss Adaptation algorithm. For details,

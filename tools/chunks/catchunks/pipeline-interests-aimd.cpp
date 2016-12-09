@@ -32,7 +32,8 @@ namespace chunks {
 namespace cwa {
 namespace aimd {
 
-PipelineInterestsAimd::PipelineInterestsAimd(Face& face, RttEstimator& rttEstimator,
+PipelineInterestsAimd::PipelineInterestsAimd(Face& face,
+                                             RttEstimator& rttEstimator,
                                              RateEstimator& rateEstimator,
                                              const Options& options)
   : PipelineInterestsCwa(face, rttEstimator, rateEstimator, options)

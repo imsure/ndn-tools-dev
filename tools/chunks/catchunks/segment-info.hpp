@@ -57,7 +57,6 @@ operator<<(std::ostream& os, SegmentState state)
   return os;
 }
 
-
 /**
  * @brief Wraps up information that's necessary for segment transmission
  */

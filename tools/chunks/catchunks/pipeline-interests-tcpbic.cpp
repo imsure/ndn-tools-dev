@@ -19,8 +19,7 @@
  *
  * See AUTHORS.md for complete list of ndn-cxx authors and contributors.
  *
- * @author Shuo Yang
- * @author Weiwei Liu
+ * @author Klaus Schneider
  */
 
 #include "pipeline-interests-tcpbic.hpp"
@@ -32,72 +31,82 @@ namespace chunks {
 namespace cwa {
 namespace tcpbic {
 
-PipelineInterestsTcpBic::PipelineInterestsTcpBic(Face& face, RttEstimator& rttEstimator,
-												 RateEstimator& rateEstimator, const Options& options)
-	: PipelineInterestsCwa(face, rttEstimator, rateEstimator, options)
-	, m_options(options)
-	, is_bic_ss(false)
-	, bic_target_win(0)
-	, bic_min_win(0)
-	, bic_max_win(MAX_INT)
-	, bic_ss_cwnd(0)
-	, bic_ss_target(0)
+PipelineInterestsTcpBic::PipelineInterestsTcpBic(Face& face,
+                                                 RttEstimator& rttEstimator,
+                                                 RateEstimator& rateEstimator,
+                                                 const Options& options)
+  : PipelineInterestsCwa(face, rttEstimator, rateEstimator, options)
+  , m_options(options)
+  , is_bic_ss(false)
+  , bic_target_win(0)
+  , bic_min_win(0)
+  , bic_max_win(MAX_INT)
+  , bic_ss_cwnd(0)
+  , bic_ss_target(0)
 {
-	if (m_options.isVerbose) {
-	 	std::cerr << m_options;
-	}
+  if (m_options.isVerbose) {
+    std::cerr << m_options;
+  }
 }
 
 void PipelineInterestsTcpBic::doIncreaseWindow()
 {
-	if (m_cwnd < LOW_WINDOW) {
-		// Normal TCP
-		if (m_cwnd <= m_ssthresh) {
-			m_cwnd = m_cwnd + 1;
-		}
-		else {
-			m_cwnd = m_cwnd + (double) 1.0 / m_cwnd;
-		}
-	}
-	else if (is_bic_ss == false) { // bin. increase
-		//      std::cout << "BIC Increase, cwnd: " << m_cwnd << ", bic_target_win: " << bic_target_win << "\n";
-		if (bic_target_win - m_cwnd < MAX_INCREMENT) { // binary search
-			m_cwnd += (bic_target_win - m_cwnd) / m_cwnd;
-		}
-		else {
-			m_cwnd += MAX_INCREMENT / m_cwnd; // additive increase
-		}
-		// FIX for equal double values.
-		if (m_cwnd + 0.00001 < bic_max_win) {
-			//        std::cout << "3 Cwnd: " << m_cwnd << ", bic_max_win: " << bic_max_win << "\n";
-			bic_min_win = m_cwnd;
-			//        std::cout << "bic_max_win: " << bic_max_win << ", bic_min_win: " << bic_min_win << "\n";
-			bic_target_win = (bic_max_win + bic_min_win) / 2;
-		}
-		else {
-			//              std::cout
-			//                  << time::duration_cast<time::milliseconds>(time::steady_clock::now().time_since_epoch())
-			//                  << " setting BIC SS true\n";
-			is_bic_ss = true;
-			bic_ss_cwnd = 1;
-			bic_ss_target = m_cwnd + 1;
-			bic_max_win = MAX_INT;
-		}
-	}
-	else { // slow start
-		//      std::cout
-		//          << time::duration_cast<time::milliseconds>(time::steady_clock::now().time_since_epoch())
-		//          << "Entering BIC slow start! cwnd: " << m_cwnd << "\n";
-		//      std::cout << "SS BIC Increase, cwnd: " << m_cwnd << ", bic_target_win: " << bic_target_win << "\n";
-		m_cwnd += bic_ss_cwnd / m_cwnd;
-		if (m_cwnd >= bic_ss_target) {
-			bic_ss_cwnd = 2 * bic_ss_cwnd;
-			bic_ss_target = m_cwnd + bic_ss_cwnd;
-		}
-		if (bic_ss_cwnd >= MAX_INCREMENT) {
-			is_bic_ss = false;
-		}
-	}
+  if (m_cwnd < LOW_WINDOW) {
+    // Normal TCP
+    if (m_cwnd <= m_ssthresh) {
+      m_cwnd = m_cwnd + 1;
+    }
+    else {
+      m_cwnd = m_cwnd + (double) 1.0 / m_cwnd;
+    }
+  }
+  else if (is_bic_ss == false) { // bin. increase
+    if (m_options.isVerbose) {
+      std::cout << "BIC Increase, cwnd: " << m_cwnd << ", bic_target_win: " << bic_target_win << "\n";
+    }
+    if (bic_target_win - m_cwnd < MAX_INCREMENT) { // binary search
+      m_cwnd += (bic_target_win - m_cwnd) / m_cwnd;
+    }
+    else {
+      m_cwnd += MAX_INCREMENT / m_cwnd; // additive increase
+    }
+    // FIX for equal double values.
+    if (m_cwnd + 0.00001 < bic_max_win) {
+      if (m_options.isVerbose) {
+        std::cout << "3 Cwnd: " << m_cwnd << ", bic_max_win: " << bic_max_win << "\n";
+      }
+      bic_min_win = m_cwnd;
+      if (m_options.isVerbose) {
+        std::cout << "bic_max_win: " << bic_max_win << ", bic_min_win: " << bic_min_win << "\n";
+      }
+      bic_target_win = (bic_max_win + bic_min_win) / 2;
+    }
+    else {
+      if (m_options.isVerbose) {
+        std::cout << time::duration_cast<time::milliseconds>(time::steady_clock::now().time_since_epoch())
+                  << " setting BIC SS true\n";
+      }
+      is_bic_ss = true;
+      bic_ss_cwnd = 1;
+      bic_ss_target = m_cwnd + 1;
+      bic_max_win = MAX_INT;
+    }
+  }
+  else { // slow start
+    if (m_options.isVerbose) {
+      std::cout << time::duration_cast<time::milliseconds>(time::steady_clock::now().time_since_epoch())
+                << "Entering BIC slow start! cwnd: " << m_cwnd << "\n";
+      std::cout << "SS BIC Increase, cwnd: " << m_cwnd << ", bic_target_win: " << bic_target_win << "\n";
+    }
+    m_cwnd += bic_ss_cwnd / m_cwnd;
+    if (m_cwnd >= bic_ss_target) {
+      bic_ss_cwnd = 2 * bic_ss_cwnd;
+      bic_ss_target = m_cwnd + bic_ss_cwnd;
+    }
+    if (bic_ss_cwnd >= MAX_INCREMENT) {
+      is_bic_ss = false;
+    }
+  }
 }
 
 void PipelineInterestsTcpBic::doDecreaseWindow()
@@ -131,7 +140,7 @@ operator<<(std::ostream& os, const PipelineInterestsTcpBicOptions& options)
 	return os;
 }
 
-} // namespace aimd
+} // namespace tcpbic
 } // namespace cwa
 } // namespace chunks
 } // namespace ndn

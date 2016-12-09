@@ -26,9 +26,6 @@
 #define NDN_TOOLS_CHUNKS_CATCHUNKS_AIMD_STATISTICS_COLLECTOR_HPP
 
 #include "pipeline-interests-cwa.hpp"
-#include "pipeline-interests-aimd.hpp"
-#include "pipeline-interests-cubic.hpp"
-#include "pipeline-interests-tcpbic.hpp"
 #include "aimd-rtt-estimator.hpp"
 #include "aimd-rate-estimator.hpp"
 

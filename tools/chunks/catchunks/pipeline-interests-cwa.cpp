@@ -322,6 +322,8 @@ PipelineInterestsCwa::handleData(const Interest& interest, const Data& data)
     cancel();
     if (m_options.isVerbose) {
       printSummary();
+    } else if (m_options.outputSummary) { // verbose option overwrites output summary option
+      printSummary();
     }
   }
   else {
@@ -510,15 +512,18 @@ PipelineInterestsCwa::printSummary() const
 std::ostream&
 operator<<(std::ostream& os, const PipelineInterestsCwaOptions& options)
 {
+  os << "Pipeline basic parameters:\n"
+     << "\tMax retries on timeout or Nack = " << options.maxRetriesOnTimeoutOrNack << "\n"
+     << "\tonly return fresh content? = " << std::boolalpha << options.mustBeFresh << "\n"
+     << "\tInterest life time = " << options.interestLifetime << "\n"
+     << "\tis verbose? = " << std::boolalpha << options.isVerbose << "\n";
+
   os << "PipelineInterestsCwa initial parameters:" << "\n"
+     << "\tprint summary? = " << std::boolalpha << options.outputSummary << "\n"
      << "\tInitial congestion window size = " << options.initCwnd << "\n"
      << "\tInitial slow start threshold = " << options.initSsthresh << "\n"
      << "\tRTO check interval = " << options.rtoCheckInterval << "\n"
-     << "\tRate check interval = " << options.rateCheckInterval << "\n"
-     << "\tMax retries on timeout or Nack = " << options.maxRetriesOnTimeoutOrNack << "\n"
-     << "\tonly return fresh content? = " << options.mustBeFresh << "\n"
-     << "\tInterest life time = " << options.interestLifetime << "\n"
-     << "\tis verbose = " << options.isVerbose << "\n";
+     << "\tRate check interval = " << options.rateInterval << " second(s)\n";
 
   std::string cwaStatus = options.disableCwa ? "disabled" : "enabled";
   os << "\tConservative Window Adaptation " << cwaStatus << "\n";

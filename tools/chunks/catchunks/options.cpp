@@ -41,11 +41,11 @@ Options::Options()
 std::ostream&
 operator<<(std::ostream& os, const Options& options)
 {
-  os << "Basic options:" << "\n"
+  os << "\tMax retries on timeout or Nack = " << options.maxRetriesOnTimeoutOrNack << "\n"
+     << "\tonly return fresh content? = " << options.mustBeFresh << "\n"
      << "\tInterest life time = " << options.interestLifetime << "\n"
-     << "\tmaxRetriesOnTimeoutOrNack = " << options.maxRetriesOnTimeoutOrNack << "\n"
-     << "\tmust be fresh = " << options.mustBeFresh << "\n"
      << "\tis verbose = " << options.isVerbose << "\n";
+
   return os;
 }
 

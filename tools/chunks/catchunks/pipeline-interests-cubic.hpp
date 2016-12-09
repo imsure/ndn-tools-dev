@@ -25,14 +25,7 @@
 #ifndef NDN_TOOLS_CHUNKS_CATCHUNKS_PIPELINE_INTERESTS_CUBIC_HPP
 #define NDN_TOOLS_CHUNKS_CATCHUNKS_PIPELINE_INTERESTS_CUBIC_HPP
 
-#include "options.hpp"
-#include "aimd-rtt-estimator.hpp"
-#include "aimd-rate-estimator.hpp"
-#include "pipeline-interests.hpp"
-#include "segment-info.hpp"
 #include "pipeline-interests-cwa.hpp"
-
-#include <queue>
 
 namespace ndn {
 namespace chunks {
@@ -58,12 +51,13 @@ public:
   double aiStep; ///< additive increase step during slow start (unit: segment)
   double cubicScale; ///< cubic scaling factor
   double cubicBeta; ///< multiplicative decrease factor after a packet loss event
-  bool cubicFastConvergence;
-  bool cubicTcpFriendliness;
+  bool cubicFastConvergence; ///< enable cubic fast convergence
+  bool cubicTcpFriendliness; ///< enable cubic TCP friendliness
 };
 
 /**
- * @brief Service for retrieving Data via an Interest pipeline
+ * @brief Service for retrieving Data via an Interest pipeline with CUBIC
+ * congestion window control algorithm.
  *
  * Retrieves all segmented Data under the specified prefix by maintaining a dynamic CUBIC
  * congestion window combined with a Conservative Loss Adaptation algorithm. For details,
@@ -91,13 +85,13 @@ public:
 
 private:
   /**
-   * @brief increase congestion window size based on AIMD scheme
+   * @brief increase congestion window size based on CUBIC scheme
    */
   virtual void
   doIncreaseWindow() final;
 
   /**
-   * @brief decrease congestion window size based on AIMD scheme
+   * @brief decrease congestion window size based on CUBIC scheme
    */
   virtual void
   doDecreaseWindow() final;
@@ -108,12 +102,11 @@ private:
 PUBLIC_WITH_TESTS_ELSE_PRIVATE:
   const Options m_options;
   /* CUBIC specific parameters */
-  time::steady_clock::TimePoint m_cubicEpochStart; ///< beginning of an epoch
-  double m_cubicLastMaxCwnd; ///< Wmax
-  double m_cubicK;
-  double m_cubicOriginPoint;
-  double m_cubicTcpCwnd;
-  Milliseconds m_cubicMinRtt;
+  time::steady_clock::TimePoint m_cubicEpochStart; ///< beginning of an CUBIC epoch
+  double m_cubicLastMaxCwnd; ///< maximum cwnd size just before the last packet loss evet
+  double m_cubicK; ///< time (in seconds) takes for a cubic function to grow to its origin point
+  double m_cubicOriginPoint; ///< turning point (from concave to convex) for a cubic function
+  double m_cubicTcpCwnd; ///< cwnd size if it's a TCP-Reno connection
 };
 
 std::ostream&

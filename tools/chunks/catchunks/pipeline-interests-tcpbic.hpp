@@ -19,20 +19,13 @@
  *
  * See AUTHORS.md for complete list of ndn-cxx authors and contributors.
  *
- * @author Shuo Yang
- * @author Weiwei Liu
+ * @author Klaus Schneider
  */
 
 #ifndef NDN_TOOLS_CHUNKS_CATCHUNKS_PIPELINE_INTERESTS_TCPBIC_HPP
 #define NDN_TOOLS_CHUNKS_CATCHUNKS_PIPELINE_INTERESTS_TCPBIC_HPP
 
-#include "options.hpp"
-#include "aimd-rtt-estimator.hpp"
-#include "aimd-rate-estimator.hpp"
 #include "pipeline-interests-cwa.hpp"
-#include "segment-info.hpp"
-
-#include <queue>
 
 namespace ndn {
 namespace chunks {
@@ -50,9 +43,10 @@ public:
 };
 
 /**
- * @brief Service for retrieving Data via an Interest pipeline
+ * @brief Service for retrieving Data via an Interest pipeline with TCP-BIC
+ * congestion window control algorithm.
  *
- * Retrieves all segmented Data under the specified prefix by maintaining a dynamic AIMD
+ * Retrieves all segmented Data under the specified prefix by maintaining a dynamic TCP-BIC
  * congestion window combined with a Conservative Loss Adaptation algorithm. For details,
  * please refer to the description in section "Interest pipeline types in ndncatchunks" of
  * tools/chunks/README.md
@@ -70,7 +64,7 @@ public:
 
 public:
   /**
-   * @brief create a PipelineInterestsAimd service
+   * @brief create a PipelineInterestsTcpBic service
    *
    * Configures the pipelining service without specifying the retrieval namespace. After this
    * configuration the method run must be called to start the Pipeline.
@@ -119,4 +113,4 @@ using cwa::tcpbic::PipelineInterestsTcpBic;
 } // namespace chunks
 } // namespace ndn
 
-#endif // NDN_TOOLS_CHUNKS_CATCHUNKS_PIPELINE_INTERESTS_AIMD_HPP
+#endif // NDN_TOOLS_CHUNKS_CATCHUNKS_PIPELINE_INTERESTS_TCPBIC_HPP

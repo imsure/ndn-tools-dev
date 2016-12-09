@@ -47,10 +47,10 @@ public:
     , initCwnd(1.0)
     , initSsthresh(std::numeric_limits<double>::max())
     , rtoCheckInterval(time::milliseconds(10))
-    , rateCheckInterval(time::milliseconds(1000))
     , rateInterval(1)
     , disableCwa(false)
     , resetCwndToInit(false)
+    , outputSummary(false)
   {
   }
 
@@ -58,19 +58,17 @@ public:
   double initCwnd; ///< initial congestion window size
   double initSsthresh; ///<  initial slow start threshold
   time::milliseconds rtoCheckInterval; ///<  time interval for checking retransmission timer
-  time::milliseconds rateCheckInterval; ///<  time interval for checking transmission rate
-  double rateInterval; // for measuring transfer rate
+  double rateInterval; ///<  time interval (in second) for checking transmission rate
   bool disableCwa; ///< disable Conservative Window Adaptation
   bool resetCwndToInit; ///< reduce cwnd to initCwnd when loss event occurs
+  bool outputSummary; ///< print summary information after finishing to stderr
 };
 
 /**
- * @brief Service for retrieving Data via an Interest pipeline
- *
- * Retrieves all segmented Data under the specified prefix by maintaining a dynamic AIMD
- * congestion window combined with a Conservative Loss Adaptation algorithm. For details,
- * please refer to the description in section "Interest pipeline types in ndncatchunks" of
- * tools/chunks/README.md
+ * @brief Service for retrieving Data via an Interest pipeline with an
+ * CWA (Conservative Loss Adaptation) based congestion control algorithm.
+ * The sub-class of this class is responsible of implementing its own
+ * window adaption algorithm.
  *
  * Provides retrieved Data on arrival with no ordering guarantees. Data is delivered to the
  * PipelineInterests' user via callback immediately upon arrival.
@@ -165,13 +163,13 @@ private:
   decreaseWindow();
 
   /**
-   * @brief increase congestion window size
+   * @brief for sub-class to implement how to increase congestion window size
    */
   virtual void
   doIncreaseWindow() = 0;
 
   /**
-   * @brief decrease congestion window size
+   * @brief for sub-class to implement how to decrease congestion window size
    */
   virtual void
   doDecreaseWindow() = 0;
@@ -226,8 +224,6 @@ PUBLIC_WITH_TESTS_ELSE_PROTECTED:
   //for Rate measurement
   uint64_t m_nPackets;
   uint64_t m_nBits;
-
-  //std::ostream& m_osSummary;
 };
 
 std::ostream&

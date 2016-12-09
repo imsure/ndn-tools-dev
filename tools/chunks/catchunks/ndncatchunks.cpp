@@ -25,6 +25,7 @@
  * @author Andrea Tosatto
  * @author Davide Pesavento
  * @author Weiwei Liu
+ * @author Shuo Yang
  */
 
 #include "core/version.hpp"
@@ -60,12 +61,12 @@ main(int argc, char** argv)
 
   // congestion control parameters, CWA refers to conservative window adaptation,
   // i.e. only reduce window size at most once per RTT
-  bool disableCwa(false), resetCwndToInit(false);
+  bool disableCwa(false), resetCwndToInit(false), outputSummary(false);
   double rateInterval(1);
   int initCwnd(1), initSsthresh(std::numeric_limits<int>::max()), k(4);
 
-  double aiStep(1.0), mdCoef(0.5); // parameters for AIMD pipeline
-  double cubicScale(0.4), cubicBeta(0.2); // parameters for CUBIC pipeline
+  double aiStepAimd(1.0), mdCoef(0.5); // parameters for AIMD pipeline
+  double aiStepCubic(1.0), cubicScale(0.4), cubicBeta(0.2); // parameters for CUBIC pipeline
 
   // parameters for RTO calculation
   double alpha(0.125), beta(0.25), minRto(200.0), maxRto(4000.0);
@@ -105,9 +106,10 @@ main(int argc, char** argv)
   po::options_description ccPipeDesc("Common options for CWA (conservative window adaptation) based "
                                      "congestion control pipelines (aimd, tcpbic and cubic)");
   ccPipeDesc.add_options()
+    ("summary,S",     po::bool_switch(&outputSummary), "print summary information after finishing to stderr")
     ("cc-debug-stats", po::value<std::string>(&statsPath),
      "output statistic data (cwnd, rtt, rate) to the given path")
-    ("cc-debug-rate-interval", po::value<double>(&rateInterval)->default_value(rateInterval),
+    ("cc-rate-interval", po::value<double>(&rateInterval)->default_value(rateInterval),
      "time interval of measuring transmission rate (in second)")
     ("disable-cwa", po::bool_switch(&disableCwa),
      "disable Conservative Window Adaptation, "
@@ -136,7 +138,7 @@ main(int argc, char** argv)
 
   po::options_description ccAimdPipeDesc("AIMD pipeline options");
   ccAimdPipeDesc.add_options()
-    ("aimd-aistep",    po::value<double>(&aiStep)->default_value(aiStep),
+    ("aimd-aistep",    po::value<double>(&aiStepAimd)->default_value(aiStepAimd),
      "additive-increase step")
     ("aimd-mdcoef",    po::value<double>(&mdCoef)->default_value(mdCoef),
      "multiplicative-decrease coefficient")
@@ -148,7 +150,7 @@ main(int argc, char** argv)
      "cubic scaling factor")
     ("cubic-beta", po::value<double>(&cubicBeta)->default_value(cubicBeta, std::to_string(cubicBeta)),
      "cubic multiplicative decrease factor after a packet loss event")
-    ("cubic-aistep", po::value<double>(&aiStep)->default_value(aiStep),
+    ("cubic-aistep", po::value<double>(&aiStepCubic)->default_value(aiStepCubic),
      "additive-increase step")
     ;
 
@@ -271,10 +273,11 @@ main(int argc, char** argv)
 
       /* set up options for CWA pipelines */
       PipelineInterestsCwa::Options optionsCwa(options);
-      optionsCwa.isVerbose = options.isVerbose;
       optionsCwa.disableCwa = disableCwa;
       optionsCwa.initCwnd = static_cast<double>(initCwnd);
       optionsCwa.initSsthresh = static_cast<double>(initSsthresh);
+      optionsCwa.rateInterval = rateInterval;
+      optionsCwa.outputSummary = outputSummary;
 
       if (!statsPath.empty()) { // set up output files for stats if specified
         // construct stats file paths
@@ -304,7 +307,8 @@ main(int argc, char** argv)
       case 0: // aimd
         {
           PipelineInterestsAimd::Options optionsAimd(optionsCwa);
-          //optionsAimd.cwaOptions = std::move(optionsCwa);
+          optionsAimd.aiStep = aiStepAimd;
+          optionsAimd.mdCoef = mdCoef;
           auto aimdPipeline = make_unique<PipelineInterestsAimd>(face, *rttEstimator, *rateEstimator, optionsAimd);
           if (!statsPath.empty()) {
             statsCollector = make_unique<StatisticsCollector>(*aimdPipeline, *rttEstimator, *rateEstimator,
@@ -316,7 +320,6 @@ main(int argc, char** argv)
       case 1: // tcpbic
         {
           PipelineInterestsTcpBic::Options optionsTcpBic(optionsCwa);
-          //optionsTcpBic.cwaOptions = std::move(optionsCwa);
           auto tcpBicPipeline = make_unique<PipelineInterestsTcpBic>(face, *rttEstimator, *rateEstimator, optionsTcpBic);
           if (!statsPath.empty()) {
             statsCollector = make_unique<StatisticsCollector>(*tcpBicPipeline, *rttEstimator, *rateEstimator,
@@ -328,7 +331,9 @@ main(int argc, char** argv)
       case 2: // cubic
         {
           PipelineInterestsCubic::Options optionsCubic(optionsCwa);
-          //optionsCubic.cwaOptions = std::move(optionsCwa);
+          optionsCubic.aiStep = aiStepCubic;
+          optionsCubic.cubicScale = cubicScale;
+          optionsCubic.cubicBeta = cubicBeta;
           auto cubicPipeline = make_unique<PipelineInterestsCubic>(face, *rttEstimator, *rateEstimator, optionsCubic);
           if (!statsPath.empty()) {
             statsCollector = make_unique<StatisticsCollector>(*cubicPipeline, *rttEstimator, *rateEstimator,
@@ -340,7 +345,7 @@ main(int argc, char** argv)
       }
     }
     else {
-      std::cerr << "ERROR: Interest pipeline type not valid" << std::endl;
+      std::cerr << "ERROR: Interest pipeline type {" << pipelineType << "} not valid" << std::endl;
       return 2;
     }
 

@@ -93,7 +93,6 @@ PipelineInterestsCubic::doIncreaseWindow()
   if (m_cwnd < m_ssthresh) {
     m_cwnd += m_options.aiStep; // slow start
   } else {
-    //m_cwnd += m_options.aiStep / std::floor(m_cwnd); // congestion avoidance
     cubicUpdate(); // congestion avoidance
   }
 }
@@ -113,14 +112,14 @@ PipelineInterestsCubic::doDecreaseWindow()
   }
 
   m_cwnd = m_cwnd * (1 - m_options.cubicBeta);
-  m_ssthresh = std::max(2.0, m_cwnd); // multiplicative decrease
+  m_ssthresh = std::max(2.0, m_cwnd);
 }
 
 std::ostream&
 operator<<(std::ostream& os, const PipelineInterestsCubicOptions& options)
 {
   os << "PipelineInterestsCubic initial parameters:" << "\n"
-     << "\tAdditive increase step for slow start= " << options.aiStep << "\n"
+     << "\tAdditive increase step for slow start = " << options.aiStep << "\n"
      << "\tCubic multiplicative decrease factor = " << options.cubicBeta << "\n"
      << "\tCubic scaling factor = " << options.cubicScale << "\n";
   return os;
