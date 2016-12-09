@@ -26,7 +26,6 @@
 
 namespace ndn {
 namespace chunks {
-namespace aimd {
 
 RttEstimator::RttEstimator(const Options& options)
   : m_options(options)
@@ -48,6 +47,7 @@ RttEstimator::addMeasurement(uint64_t segNo, double now, Milliseconds rtt, size_
     m_sRtt = rtt;
     m_rttVar = m_sRtt / 2;
     m_rto = m_sRtt + m_options.k * m_rttVar;
+    m_minRtt = rtt;
   }
   else {
     double alpha = m_options.alpha / nExpectedSamples;
@@ -55,6 +55,8 @@ RttEstimator::addMeasurement(uint64_t segNo, double now, Milliseconds rtt, size_
     m_rttVar = (1 - beta) * m_rttVar + beta * time::abs(m_sRtt - rtt);
     m_sRtt = (1 - alpha) * m_sRtt + alpha * rtt;
     m_rto = m_sRtt + m_options.k * m_rttVar;
+
+    m_minRtt = std::min(m_minRtt, rtt);
   }
 
   m_rto = ndn::clamp(m_rto, m_options.minRto, m_options.maxRto);
@@ -82,6 +84,5 @@ operator<<(std::ostream& os, const RttEstimator::Options& options)
   return os;
 }
 
-} // namespace aimd
 } // namespace chunks
 } // namespace ndn

@@ -27,7 +27,6 @@
 
 namespace ndn {
 namespace chunks {
-namespace aimd {
 
 struct RateSample
 {
@@ -64,7 +63,6 @@ PUBLIC_WITH_TESTS_ELSE_PRIVATE:
   double m_rateInterval;
 };
 
-} // namespace aimd
 } // namespace chunks
 } // namespace ndn
 

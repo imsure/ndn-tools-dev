@@ -33,6 +33,7 @@
 #include "discover-version-fixed.hpp"
 #include "discover-version-iterative.hpp"
 #include "pipeline-interests-fixed-window.hpp"
+#include "pipeline-interests-cwa.hpp"
 #include "pipeline-interests-aimd.hpp"
 #include "pipeline-interests-cubic.hpp"
 #include "pipeline-interests-tcpbic.hpp"
@@ -60,10 +61,16 @@ main(int argc, char** argv)
   // congestion control parameters, CWA refers to conservative window adaptation,
   // i.e. only reduce window size at most once per RTT
   bool disableCwa(false), resetCwndToInit(false);
-  double aiStep(1.0), mdCoef(0.5), alpha(0.125), beta(0.25),
-    minRto(200.0), maxRto(4000.0), rateInterval(1);
+  double rateInterval(1);
   int initCwnd(1), initSsthresh(std::numeric_limits<int>::max()), k(4);
-  std::string statsPath, cwndPath, rttPath, ratePath, summaryPath;
+
+  double aiStep(1.0), mdCoef(0.5); // parameters for AIMD pipeline
+  double cubicScale(0.4), cubicBeta(0.2); // parameters for CUBIC pipeline
+
+  // parameters for RTO calculation
+  double alpha(0.125), beta(0.25), minRto(200.0), maxRto(4000.0);
+
+  std::string statsPath, cwndPath, rttPath, ratePath;
 
   namespace po = boost::program_options;
   po::options_description basicDesc("Basic Options");
@@ -80,67 +87,75 @@ main(int argc, char** argv)
                     "maximum number of retries in case of Nack or timeout (-1 = no limit)")
     ("verbose,v",   po::bool_switch(&options.isVerbose), "turn on verbose output")
     ("version,V",   "print program version and exit")
-    ("stats,S", po::value<std::string>(&statsPath), "output statistic data to the given path")
     ;
 
   po::options_description iterDiscoveryDesc("Iterative version discovery options");
   iterDiscoveryDesc.add_options()
     ("retries-iterative,i", po::value<int>(&maxRetriesAfterVersionFound)->default_value(maxRetriesAfterVersionFound),
-                            "number of timeouts that have to occur in order to confirm a discovered Data "
-                            "version as the latest one")
+     "number of timeouts that have to occur in order to confirm a discovered Data "
+     "version as the latest one")
     ;
 
   po::options_description fixedPipeDesc("Fixed pipeline options");
   fixedPipeDesc.add_options()
     ("pipeline-size,s", po::value<size_t>(&maxPipelineSize)->default_value(maxPipelineSize),
-                        "size of the Interest pipeline")
+     "size of the Interest pipeline")
     ;
 
-  po::options_description aimdPipeDesc("AIMD pipeline options");
-  aimdPipeDesc.add_options()
-    ("aimd-debug-cwnd", po::value<std::string>(&cwndPath),
-                        "log file for AIMD cwnd statistics")
-    ("aimd-debug-rtt", po::value<std::string>(&rttPath),
-                       "log file for AIMD rtt statistics")
-    ("aimd-debug-rate-interval", po::value<double>(&rateInterval)->default_value(rateInterval),
-     "AIMD rate Interval")
-    ("aimd-disable-cwa", po::bool_switch(&disableCwa),
+  po::options_description ccPipeDesc("Common options for CWA (conservative window adaptation) based "
+                                     "congestion control pipelines (aimd, tcpbic and cubic)");
+  ccPipeDesc.add_options()
+    ("cc-debug-stats", po::value<std::string>(&statsPath),
+     "output statistic data (cwnd, rtt, rate) to the given path")
+    ("cc-debug-rate-interval", po::value<double>(&rateInterval)->default_value(rateInterval),
+     "time interval of measuring transmission rate (in second)")
+    ("disable-cwa", po::bool_switch(&disableCwa),
      "disable Conservative Window Adaptation, "
      "i.e. reduce window on each timeout (instead of at most once per RTT)")
+    ("initial-cwnd",       po::value<int>(&initCwnd)->default_value(initCwnd), "initial cwnd")
+    ("initial-ssthresh",   po::value<int>(&initSsthresh),
+     "initial slow start threshold (defaults to infinity)")
     ("aimd-reset-cwnd-to-init", po::bool_switch(&resetCwndToInit),
      "reset cwnd to initial cwnd when loss event occurs, default is "
      "resetting to ssthresh")
-    ("aimd-initial-cwnd",       po::value<int>(&initCwnd)->default_value(initCwnd),
-                                "initial cwnd")
-    ("aimd-initial-ssthresh",   po::value<int>(&initSsthresh),
-                                "initial slow start threshold (defaults to infinity)")
-    ("aimd-aistep",    po::value<double>(&aiStep)->default_value(aiStep),
-                       "additive-increase step")
-    ("aimd-mdcoef",    po::value<double>(&mdCoef)->default_value(mdCoef),
-                       "multiplicative-decrease coefficient")
-    ("aimd-rto-alpha", po::value<double>(&alpha)->default_value(alpha),
-                       "alpha value for rto calculation")
-    ("aimd-rto-beta",  po::value<double>(&beta)->default_value(beta),
-                       "beta value for rto calculation")
-    ("aimd-rto-k",     po::value<int>(&k)->default_value(k),
-                       "k value for rto calculation")
-    ("aimd-rto-min",   po::value<double>(&minRto)->default_value(minRto),
-                       "min rto value in milliseconds")
-    ("aimd-rto-max",   po::value<double>(&maxRto)->default_value(maxRto),
-                       "max rto value in milliseconds")
     ;
 
-  po::options_description cubicPipeDesc("CUBIC pipeline options");
-  cubicPipeDesc.add_options()
-    ("cubic-debug-cwnd", po::value<std::string>(&cwndPath),
-     "log file for CUBIC cwnd statistics")
-    ("cubic-debug-rtt", po::value<std::string>(&rttPath),
-     "log file for CUBIC rtt statistics")
+  po::options_description rtoDesc("Options for RTO calculation");
+  rtoDesc.add_options()
+    ("rto-alpha", po::value<double>(&alpha)->default_value(alpha),
+     "alpha value for rto calculation")
+    ("rto-beta",  po::value<double>(&beta)->default_value(beta),
+     "beta value for rto calculation")
+    ("rto-k",     po::value<int>(&k)->default_value(k),
+     "k value for rto calculation")
+    ("rto-min",   po::value<double>(&minRto)->default_value(minRto),
+     "min rto value in milliseconds")
+    ("to-max",   po::value<double>(&maxRto)->default_value(maxRto),
+     "max rto value in milliseconds")
+    ;
+
+  po::options_description ccAimdPipeDesc("AIMD pipeline options");
+  ccAimdPipeDesc.add_options()
+    ("aimd-aistep",    po::value<double>(&aiStep)->default_value(aiStep),
+     "additive-increase step")
+    ("aimd-mdcoef",    po::value<double>(&mdCoef)->default_value(mdCoef),
+     "multiplicative-decrease coefficient")
+    ;
+
+  po::options_description ccCubicPipeDesc("CUBIC pipeline options");
+  ccCubicPipeDesc.add_options()
+    ("cubic-scale", po::value<double>(&cubicScale)->default_value(cubicScale, std::to_string(cubicScale)),
+     "cubic scaling factor")
+    ("cubic-beta", po::value<double>(&cubicBeta)->default_value(cubicBeta, std::to_string(cubicBeta)),
+     "cubic multiplicative decrease factor after a packet loss event")
+    ("cubic-aistep", po::value<double>(&aiStep)->default_value(aiStep),
+     "additive-increase step")
     ;
 
   po::options_description visibleDesc;
   visibleDesc.add(basicDesc).add(iterDiscoveryDesc).
-    add(fixedPipeDesc).add(aimdPipeDesc).add(cubicPipeDesc);
+    add(fixedPipeDesc).add(ccPipeDesc).add(rtoDesc).
+    add(ccAimdPipeDesc).add(ccCubicPipeDesc);
 
   po::options_description hiddenDesc;
   hiddenDesc.add_options()
@@ -225,55 +240,43 @@ main(int argc, char** argv)
     }
 
     unique_ptr<PipelineInterests> pipeline;
-    unique_ptr<aimd::StatisticsCollector> statsCollector;
-    unique_ptr<aimd::RttEstimator> rttEstimator;
-    unique_ptr<aimd::RateEstimator> rateEstimator;
+    unique_ptr<StatisticsCollector> statsCollector;
+    unique_ptr<RttEstimator> rttEstimator;
+    unique_ptr<RateEstimator> rateEstimator;
     std::ofstream statsFileCwnd;
     std::ofstream statsFileRtt;
     std::ofstream statsFileRate;
-    std::ofstream statsFileSummary;
 
     if (pipelineType == "fixed") {
       PipelineInterestsFixedWindow::Options optionsPipeline(options);
       optionsPipeline.maxPipelineSize = maxPipelineSize;
       pipeline = make_unique<PipelineInterestsFixedWindow>(face, optionsPipeline);
     }
-    else if (pipelineType == "aimd") {
-      aimd::RttEstimator::Options optionsRttEst;
+    else if (pipelineType == "cubic" || pipelineType == "aimd" || pipelineType == "tcpbic") {
+      /* construct a map for using with switch */
+      std::map<std::string, int> pipelines;
+      pipelines["aimd"] = 0; pipelines["tcpbic"] = 1; pipelines["cubic"] = 2;
+
+      /* set up RTT Estimator & Rate Estimator */
+      RttEstimator::Options optionsRttEst;
       optionsRttEst.isVerbose = options.isVerbose;
       optionsRttEst.alpha = alpha;
       optionsRttEst.beta = beta;
       optionsRttEst.k = k;
-      optionsRttEst.minRto = aimd::Milliseconds(minRto);
-      optionsRttEst.maxRto = aimd::Milliseconds(maxRto);
+      optionsRttEst.minRto = Milliseconds(minRto);
+      optionsRttEst.maxRto = Milliseconds(maxRto);
 
-      rateEstimator = make_unique<aimd::RateEstimator>(rateInterval);
-      rttEstimator = make_unique<aimd::RttEstimator>(optionsRttEst);
+      rttEstimator = make_unique<RttEstimator>(optionsRttEst);
+      rateEstimator = make_unique<RateEstimator>(rateInterval);
 
-      PipelineInterestsAimd::Options optionsPipeline;
-      optionsPipeline.isVerbose = options.isVerbose;
-      optionsPipeline.disableCwa = disableCwa;
-      optionsPipeline.resetCwndToInit = resetCwndToInit;
-      optionsPipeline.initCwnd = static_cast<double>(initCwnd);
-      optionsPipeline.initSsthresh = static_cast<double>(initSsthresh);
-      optionsPipeline.aiStep = aiStep;
-      optionsPipeline.mdCoef = mdCoef;
+      /* set up options for CWA pipelines */
+      PipelineInterestsCwa::Options optionsCwa(options);
+      optionsCwa.isVerbose = options.isVerbose;
+      optionsCwa.disableCwa = disableCwa;
+      optionsCwa.initCwnd = static_cast<double>(initCwnd);
+      optionsCwa.initSsthresh = static_cast<double>(initSsthresh);
 
-      if (!statsPath.empty()) {
-        summaryPath = statsPath + '/' + "summary_" + pipelineType + ".txt";
-        statsFileSummary.open(summaryPath);
-        if (statsFileSummary.fail()) {
-          std::cerr << "ERROR: failed to open " << summaryPath << std::endl;
-          return 4;
-        }
-      }
-
-      auto aimdPipeline = make_unique<PipelineInterestsAimd>(face, *rttEstimator,
-                                                             *rateEstimator,
-                                                             optionsPipeline,
-                                                             statsPath.empty() ? std::cerr : statsFileSummary);
-
-      if (!statsPath.empty()) {
+      if (!statsPath.empty()) { // set up output files for stats if specified
         // construct stats file paths
         cwndPath = statsPath + '/' + "cwnd_" + pipelineType + ".txt";
         rttPath = statsPath + '/' + "rtt_" + pipelineType + ".txt";
@@ -285,154 +288,56 @@ main(int argc, char** argv)
           std::cerr << "ERROR: failed to open " << cwndPath << std::endl;
           return 4;
         }
-
         statsFileRtt.open(rttPath);
         if (statsFileRtt.fail()) {
           std::cerr << "ERROR: failed to open " << rttPath << std::endl;
           return 4;
         }
-
         statsFileRate.open(ratePath);
         if (statsFileRate.fail()) {
           std::cerr << "ERROR: failed to open " << ratePath << std::endl;
           return 4;
         }
-
-        statsCollector = make_unique<aimd::StatisticsCollector>(*aimdPipeline, *rttEstimator, *rateEstimator,
-                                                                statsFileCwnd, statsFileRtt, statsFileRate);
       }
 
-      pipeline = std::move(aimdPipeline);
-    }
-    else if (pipelineType == "cubic") {
-      aimd::RttEstimator::Options optionsRttEst;
-      optionsRttEst.isVerbose = options.isVerbose;
-      optionsRttEst.alpha = alpha;
-      optionsRttEst.beta = beta;
-      optionsRttEst.k = k;
-      optionsRttEst.minRto = aimd::Milliseconds(minRto);
-      optionsRttEst.maxRto = aimd::Milliseconds(maxRto);
-
-      rttEstimator = make_unique<aimd::RttEstimator>(optionsRttEst);
-      rateEstimator = make_unique<aimd::RateEstimator>(rateInterval);
-
-      PipelineInterestsCubic::Options optionsPipeline;
-      optionsPipeline.isVerbose = options.isVerbose;
-      optionsPipeline.disableCwa = disableCwa;
-      optionsPipeline.resetCwndToInit = resetCwndToInit;
-      optionsPipeline.initCwnd = static_cast<double>(initCwnd);
-      optionsPipeline.initSsthresh = static_cast<double>(initSsthresh);
-      optionsPipeline.aiStep = aiStep;
-
-      if (!statsPath.empty()) {
-        summaryPath = statsPath + '/' + "summary_" + pipelineType + ".txt";
-        statsFileSummary.open(summaryPath);
-        if (statsFileSummary.fail()) {
-          std::cerr << "ERROR: failed to open " << summaryPath << std::endl;
-          return 4;
+      switch (pipelines[pipelineType]) {
+      case 0: // aimd
+        {
+          PipelineInterestsAimd::Options optionsAimd(optionsCwa);
+          //optionsAimd.cwaOptions = std::move(optionsCwa);
+          auto aimdPipeline = make_unique<PipelineInterestsAimd>(face, *rttEstimator, *rateEstimator, optionsAimd);
+          if (!statsPath.empty()) {
+            statsCollector = make_unique<StatisticsCollector>(*aimdPipeline, *rttEstimator, *rateEstimator,
+                                                              statsFileCwnd, statsFileRtt, statsFileRate);
+          }
+          pipeline = std::move(aimdPipeline);
         }
+        break;
+      case 1: // tcpbic
+        {
+          PipelineInterestsTcpBic::Options optionsTcpBic(optionsCwa);
+          //optionsTcpBic.cwaOptions = std::move(optionsCwa);
+          auto tcpBicPipeline = make_unique<PipelineInterestsTcpBic>(face, *rttEstimator, *rateEstimator, optionsTcpBic);
+          if (!statsPath.empty()) {
+            statsCollector = make_unique<StatisticsCollector>(*tcpBicPipeline, *rttEstimator, *rateEstimator,
+                                                              statsFileCwnd, statsFileRtt, statsFileRate);
+          }
+          pipeline = std::move(tcpBicPipeline);
+        }
+        break;
+      case 2: // cubic
+        {
+          PipelineInterestsCubic::Options optionsCubic(optionsCwa);
+          //optionsCubic.cwaOptions = std::move(optionsCwa);
+          auto cubicPipeline = make_unique<PipelineInterestsCubic>(face, *rttEstimator, *rateEstimator, optionsCubic);
+          if (!statsPath.empty()) {
+            statsCollector = make_unique<StatisticsCollector>(*cubicPipeline, *rttEstimator, *rateEstimator,
+                                                              statsFileCwnd, statsFileRtt, statsFileRate);
+          }
+          pipeline = std::move(cubicPipeline);
+        }
+        break;
       }
-
-      auto cubicPipeline = make_unique<PipelineInterestsCubic>(face, *rttEstimator,
-                                                               *rateEstimator,
-                                                               optionsPipeline,
-                                                               statsPath.empty() ? std::cerr : statsFileSummary);
-
-      if (!statsPath.empty()) {
-        // construct stats file paths
-        cwndPath = statsPath + '/' + "cwnd_" + pipelineType + ".txt";
-        rttPath = statsPath + '/' + "rtt_" + pipelineType + ".txt";
-        ratePath = statsPath + '/' + "rate_" + pipelineType + ".txt";
-
-        // open stats files
-        statsFileCwnd.open(cwndPath);
-        if (statsFileCwnd.fail()) {
-          std::cerr << "ERROR: failed to open " << cwndPath << std::endl;
-          return 4;
-        }
-
-        statsFileRtt.open(rttPath);
-        if (statsFileRtt.fail()) {
-          std::cerr << "ERROR: failed to open " << rttPath << std::endl;
-          return 4;
-        }
-
-        statsFileRate.open(ratePath);
-        if (statsFileRate.fail()) {
-          std::cerr << "ERROR: failed to open " << ratePath << std::endl;
-          return 4;
-        }
-
-        statsCollector = make_unique<aimd::StatisticsCollector>(*cubicPipeline, *rttEstimator, *rateEstimator,
-                                                                statsFileCwnd, statsFileRtt, statsFileRate);
-      }
-
-      pipeline = std::move(cubicPipeline);
-    }
-    else if (pipelineType == "tcpbic") {
-      aimd::RttEstimator::Options optionsRttEst;
-      optionsRttEst.isVerbose = options.isVerbose;
-      optionsRttEst.alpha = alpha;
-      optionsRttEst.beta = beta;
-      optionsRttEst.k = k;
-      optionsRttEst.minRto = aimd::Milliseconds(minRto);
-      optionsRttEst.maxRto = aimd::Milliseconds(maxRto);
-
-      rttEstimator = make_unique<aimd::RttEstimator>(optionsRttEst);
-      rateEstimator = make_unique<aimd::RateEstimator>(rateInterval);
-
-      PipelineInterestsTcpBic::Options optionsPipeline;
-      optionsPipeline.isVerbose = options.isVerbose;
-      optionsPipeline.disableCwa = disableCwa;
-      optionsPipeline.resetCwndToInit = resetCwndToInit;
-      optionsPipeline.initCwnd = static_cast<double>(initCwnd);
-      optionsPipeline.initSsthresh = static_cast<double>(initSsthresh);
-      optionsPipeline.aiStep = aiStep;
-
-      if (!statsPath.empty()) {
-        summaryPath = statsPath + '/' + "summary_" + pipelineType + ".txt";
-        statsFileSummary.open(summaryPath);
-        if (statsFileSummary.fail()) {
-          std::cerr << "ERROR: failed to open " << summaryPath << std::endl;
-          return 4;
-        }
-      }
-
-      auto tcpbicPipeline = make_unique<PipelineInterestsTcpBic>(face, *rttEstimator,
-                                                                 *rateEstimator,
-                                                                 optionsPipeline,
-                                                                 statsPath.empty() ? std::cerr : statsFileSummary);
-
-      if (!statsPath.empty()) {
-        // construct stats file paths
-        cwndPath = statsPath + '/' + "cwnd_" + pipelineType + ".txt";
-        rttPath = statsPath + '/' + "rtt_" + pipelineType + ".txt";
-        ratePath = statsPath + '/' + "rate_" + pipelineType + ".txt";
-
-        // open stats files
-        statsFileCwnd.open(cwndPath);
-        if (statsFileCwnd.fail()) {
-          std::cerr << "ERROR: failed to open " << cwndPath << std::endl;
-          return 4;
-        }
-
-        statsFileRtt.open(rttPath);
-        if (statsFileRtt.fail()) {
-          std::cerr << "ERROR: failed to open " << rttPath << std::endl;
-          return 4;
-        }
-
-        statsFileRate.open(ratePath);
-        if (statsFileRate.fail()) {
-          std::cerr << "ERROR: failed to open " << ratePath << std::endl;
-          return 4;
-        }
-
-        statsCollector = make_unique<aimd::StatisticsCollector>(*tcpbicPipeline, *rttEstimator, *rateEstimator,
-                                                                statsFileCwnd, statsFileRtt, statsFileRate);
-      }
-
-      pipeline = std::move(tcpbicPipeline);
     }
     else {
       std::cerr << "ERROR: Interest pipeline type not valid" << std::endl;

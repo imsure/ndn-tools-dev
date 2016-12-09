@@ -25,7 +25,6 @@
 
 namespace ndn {
 namespace chunks {
-namespace aimd {
 
 RateEstimator::RateEstimator(double rateInterval)
   : m_rateInterval(rateInterval)
@@ -41,6 +40,5 @@ RateEstimator::addMeasurement(double now, uint64_t nPackets, uint64_t nBits)
   afterRateMeasurement({now, pps, kbps});
 }
 
-} // namespace aimd
 } // namespace chunks
 } // namespace ndn

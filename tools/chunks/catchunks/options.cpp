@@ -1,4 +1,3 @@
-/* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /**
  * Copyright (c) 2016,  Regents of the University of California,
  *                      Colorado State University,
@@ -34,9 +33,20 @@ namespace chunks {
 Options::Options()
   : interestLifetime(ndn::DEFAULT_INTEREST_LIFETIME)
   , maxRetriesOnTimeoutOrNack(5)
-  , mustBeFresh(true)
+  , mustBeFresh(false)
   , isVerbose(false)
 {
+}
+
+std::ostream&
+operator<<(std::ostream& os, const Options& options)
+{
+  os << "Basic options:" << "\n"
+     << "\tInterest life time = " << options.interestLifetime << "\n"
+     << "\tmaxRetriesOnTimeoutOrNack = " << options.maxRetriesOnTimeoutOrNack << "\n"
+     << "\tmust be fresh = " << options.mustBeFresh << "\n"
+     << "\tis verbose = " << options.isVerbose << "\n";
+  return os;
 }
 
 } // namespace chunks

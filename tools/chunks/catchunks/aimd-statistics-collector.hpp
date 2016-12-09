@@ -25,6 +25,7 @@
 #ifndef NDN_TOOLS_CHUNKS_CATCHUNKS_AIMD_STATISTICS_COLLECTOR_HPP
 #define NDN_TOOLS_CHUNKS_CATCHUNKS_AIMD_STATISTICS_COLLECTOR_HPP
 
+#include "pipeline-interests-cwa.hpp"
 #include "pipeline-interests-aimd.hpp"
 #include "pipeline-interests-cubic.hpp"
 #include "pipeline-interests-tcpbic.hpp"
@@ -33,7 +34,6 @@
 
 namespace ndn {
 namespace chunks {
-namespace aimd {
 
 /**
  * @brief Statistics collector for AIMD pipeline
@@ -41,15 +41,7 @@ namespace aimd {
 class StatisticsCollector : noncopyable
 {
 public:
-  StatisticsCollector(PipelineInterestsAimd& pipeline,
-                      RttEstimator& rttEstimator, RateEstimator& rateEstimator,
-                      std::ostream& osCwnd, std::ostream& osRtt, std::ostream& osRate);
-
-  StatisticsCollector(PipelineInterestsCubic& pipeline,
-                      RttEstimator& rttEstimator, RateEstimator& rateEstimator,
-                      std::ostream& osCwnd, std::ostream& osRtt, std::ostream& osRate);
-
-  StatisticsCollector(PipelineInterestsTcpBic& pipeline,
+  StatisticsCollector(PipelineInterestsCwa& pipeline,
                       RttEstimator& rttEstimator, RateEstimator& rateEstimator,
                       std::ostream& osCwnd, std::ostream& osRtt, std::ostream& osRate);
 
@@ -59,7 +51,6 @@ private:
   std::ostream& m_osRate;
 };
 
-} // namespace aimd
 } // namespace chunks
 } // namespace ndn
 

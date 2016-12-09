@@ -28,7 +28,6 @@
 
 namespace ndn {
 namespace chunks {
-namespace aimd {
 
 typedef time::duration<double, time::milliseconds::period> Milliseconds;
 
@@ -111,6 +110,9 @@ public:
   Milliseconds
   getSmoothedRtt() const;
 
+  Milliseconds
+  getMinRtt() const;
+
   /**
    * @brief backoff RTO by the factor of RttEstimatorOptions::rtoBackoffMultiplier
    */
@@ -127,6 +129,7 @@ PUBLIC_WITH_TESTS_ELSE_PRIVATE:
   Milliseconds m_sRtt; ///< smoothed round-trip time
   Milliseconds m_rttVar; ///< round-trip time variation
   Milliseconds m_rto; ///< retransmission timeout
+  Milliseconds m_minRtt; ///< minimum RTT value (used by CUBIC pipeline)
 };
 
 /**
@@ -147,10 +150,18 @@ RttEstimator::getSmoothedRtt() const
   return m_sRtt;
 }
 
+/**
+ * @brief returns the min rtt value
+ */
+inline Milliseconds
+RttEstimator::getMinRtt() const
+{
+  return m_minRtt;
+}
+
 std::ostream&
 operator<<(std::ostream& os, const RttEstimator::Options& options);
 
-} // namespace aimd
 } // namespace chunks
 } // namespace ndn
 
