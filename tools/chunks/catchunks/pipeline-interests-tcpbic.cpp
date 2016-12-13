@@ -136,8 +136,8 @@ void PipelineInterestsTcpBic::doDecreaseWindow()
 std::ostream&
 operator<<(std::ostream& os, const PipelineInterestsTcpBicOptions& options)
 {
-	os << "PipelineInterestsTcpBic initial parameters:" << "\n";
-	return os;
+  os << "PipelineInterestsTcpBic initial parameters:" << "\n";
+  return os;
 }
 
 } // namespace tcpbic

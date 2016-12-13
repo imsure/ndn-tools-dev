@@ -22,7 +22,7 @@
  * @author Weiwei Liu
  */
 
-#include "aimd-statistics-collector.hpp"
+#include "statistics-collector.hpp"
 
 namespace ndn {
 namespace chunks {

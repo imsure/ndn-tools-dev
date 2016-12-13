@@ -27,8 +27,8 @@
 #define NDN_TOOLS_CHUNKS_CATCHUNKS_PIPELINE_INTERESTS_CWA_HPP
 
 #include "options.hpp"
-#include "aimd-rtt-estimator.hpp"
-#include "aimd-rate-estimator.hpp"
+#include "rtt-estimator.hpp"
+#include "rate-estimator.hpp"
 #include "pipeline-interests.hpp"
 #include "segment-info.hpp"
 

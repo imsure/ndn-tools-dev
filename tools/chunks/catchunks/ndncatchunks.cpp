@@ -38,8 +38,7 @@
 #include "pipeline-interests-aimd.hpp"
 #include "pipeline-interests-cubic.hpp"
 #include "pipeline-interests-tcpbic.hpp"
-#include "aimd-rtt-estimator.hpp"
-#include "aimd-statistics-collector.hpp"
+#include "statistics-collector.hpp"
 
 #include <ndn-cxx/security/validator-null.hpp>
 #include <fstream>

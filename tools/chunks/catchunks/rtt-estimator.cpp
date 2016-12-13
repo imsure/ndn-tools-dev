@@ -21,7 +21,7 @@
  * @author Weiwei Liu
  */
 
-#include "aimd-rtt-estimator.hpp"
+#include "rtt-estimator.hpp"
 #include <cmath>
 
 namespace ndn {

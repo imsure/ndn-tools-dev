@@ -26,8 +26,8 @@
 #define NDN_TOOLS_CHUNKS_CATCHUNKS_AIMD_STATISTICS_COLLECTOR_HPP
 
 #include "pipeline-interests-cwa.hpp"
-#include "aimd-rtt-estimator.hpp"
-#include "aimd-rate-estimator.hpp"
+#include "rtt-estimator.hpp"
+#include "rate-estimator.hpp"
 
 namespace ndn {
 namespace chunks {

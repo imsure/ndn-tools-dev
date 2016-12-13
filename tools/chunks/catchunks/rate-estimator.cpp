@@ -20,7 +20,7 @@
  * @author Teng Liang
  */
 
-#include "aimd-rate-estimator.hpp"
+#include "rate-estimator.hpp"
 #include <cmath>
 
 namespace ndn {
