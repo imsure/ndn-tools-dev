@@ -93,7 +93,7 @@ PipelineInterestsCwa::doCancel()
   }
   m_segmentInfo.clear();
   m_scheduler.cancelAllEvents();
-  m_face.getIoService().stop();
+  //m_face.getIoService().stop();
 }
 
 void PipelineInterestsCwa::checkRate()
