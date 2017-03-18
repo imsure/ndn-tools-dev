@@ -94,6 +94,9 @@ private:
   void
   handleTimeout(const Interest& interest, const std::string& reason) final;
 
+  void
+  handleNack(const Interest& interest, const std::string& reason) final;
+
 private:
   uint64_t m_latestVersion;
   shared_ptr<const Data> m_latestVersionData;

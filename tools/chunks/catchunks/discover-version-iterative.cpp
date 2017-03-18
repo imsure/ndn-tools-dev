@@ -26,6 +26,7 @@
  */
 
 #include "discover-version-iterative.hpp"
+#include <boost/algorithm/string/predicate.hpp>
 
 namespace ndn {
 namespace chunks {
@@ -112,6 +113,22 @@ DiscoverVersionIterative::handleTimeout(const Interest& interest, const std::str
   }
   else {
     DiscoverVersion::handleTimeout(interest, reason);
+  }
+}
+
+void
+DiscoverVersionIterative::handleNack(const Interest& interest, const std::string& reason)
+{
+  if (m_foundVersion && boost::algorithm::ends_with(reason, "NoRoute")) {
+    // a version has been found and after a Nack:NoRoute error this version can be used as the latest.
+    if (isVerbose)
+      std::cerr << "Found data with the latest version: " << m_latestVersion << std::endl;
+
+    // we discovered at least one version. assume what we have is the latest.
+    this->emitSignal(onDiscoverySuccess, *m_latestVersionData);
+  }
+  else {
+    DiscoverVersion::handleNack(interest, reason);
   }
 }
 
