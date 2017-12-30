@@ -7,12 +7,13 @@ brewer.palette <- "Set1"
 ggplot <- function(...) ggplot2::ggplot(...) + 
   scale_color_brewer(palette=paste(brewer.palette))
 
-setwd("~/ubuntu1404_node1/ndn-tools2/tools/chunks/experiments/200mb_50ms/run-3")
+setwd("~/ubuntu1404_node1/ndn-tools-dev-vegas/tools/chunks/experiments/100mb_100ms/run-1")
 # cctype <- 'aimd'
 # cctype <- 'tcpbic'
 # cctype <- 'cubic'
 
-cctype.list <- c('aimd', 'tcpbic', 'cubic')
+cctype.list <- c('aimd', 'vegas', 'cubic')
+# cctype.list <- c('vegas')
 for (cctype in cctype.list) {
   cwnd <- read.table(paste("cwnd", "_", cctype, ".txt", sep=""), header=T)
   rtt <- read.table(paste("rtt", "_", cctype, ".txt", sep=""), header=T)
@@ -35,7 +36,7 @@ for (cctype in cctype.list) {
   g.rate <- ggplot(rate, aes (x=time, y=kbps/1000)) +
     geom_line(size=0.8) + 
     ylab("Rate [Mbit/s]") +
-    ylim(0,20) +
+    ylim(0,50) +
     labs(type='custom text') 
   g.rate
   
